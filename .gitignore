@@ -133,3 +133,10 @@ cw1/logs/*
 *.png
 *.jpg
 *.jpeg
+
+# ignore pip offline packages
+pipreq.tar.gz
+pipreq/*
+
+# ignore CREATE stuff
+scratch
