@@ -96,3 +96,11 @@ def plot_history(history):
     
 def plot_confusion_matrix(x_test, y_test, net):
     return tf.math.confusion_matrix(np.argmax(y_test, axis=1), np.argmax(net.predict(x_test), axis=1))
+
+def test_on_augs(net, elem_spec, version="v1"):
+    augp = Path("/users/k21190024/study/KCL_7CCSMPNN/scratch/test_augmented_" + version)
+    res = {}
+    for p in augp.iterdir():
+        ds = tf.data.experimental.load(p.resolve().as_posix(), elem_spec, compression="GZIP")
+        res[p.name] = net.evaluate(ds.batch(512), return_dict=True)
+    return res
