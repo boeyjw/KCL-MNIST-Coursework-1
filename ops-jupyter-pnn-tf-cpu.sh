@@ -1,15 +1,12 @@
 #!/bin/bash -l
 
 #SBATCH --job-name=jpnntf
-#SBATCH --partition=gpu
-#SBATCH --signal=USR2
+#SBATCH --partition=cpu
 #SBATCH --output=/scratch/users/%u/slurm-out/%j.out
-#SBATCH --gres=gpu
-#SBATCH --mem=30G
+#SBATCH --mem=40G
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-gpu=8
 
-module load py-tensorflow/2.4.1-gcc-9.4.0-cuda-python-3.8.12
+module load anaconda3/2021.05-gcc-9.4.0
 
 # get unused socket per https://unix.stackexchange.com/a/132524
 readonly DETAIL=$(python -c 'import datetime; print(datetime.datetime.now())')
@@ -31,8 +28,8 @@ issuing the following command on the login node:
 
 END
 
-source /scratch/users/k21190024/envs/p-pnn-gpu/bin/activate
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/software/spackages_prod/apps/linux-ubuntu20.04-icelake/gcc-9.4.0/cuda-11.1.1-t4s2syhcsf3lduyfrbdyxy37pwjab66h/extras/CUPTI/lib64
+source activate `which conda`
+source activate /scratch/users/k21190024/envs/conda/p-pnn-tf
 jupyter-lab --port=${PORT} --ip=${IPADDRESS} --no-browser --notebook-dir=${HOME}/study/KCL_7CCSMPNN
 
 printf 'notebook exited' 1>&2
