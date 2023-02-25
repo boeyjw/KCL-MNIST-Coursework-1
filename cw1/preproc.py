@@ -73,7 +73,7 @@ def load_aug_data(aug_path, elem_spec, test_ind=[5]):
         else:
             train_ds = loaded_ds if train_ds is None else train_ds.concatenate(loaded_ds)
         i += 1
-    return train_ds, test_ds
+    return train_ds.shuffle(100000, reshuffle_each_iteration=True), test_ds
 
 def plot_shuffle(tensor_ds, show_axis=True):
     tmp = tensor_ds.shuffle(36).take(36).as_numpy_iterator()
@@ -97,10 +97,12 @@ def plot_history(history):
 def plot_confusion_matrix(x_test, y_test, net):
     return tf.math.confusion_matrix(np.argmax(y_test, axis=1), np.argmax(net.predict(x_test), axis=1))
 
-def test_on_augs(net, elem_spec, version="v1"):
-    augp = Path("/users/k21190024/study/KCL_7CCSMPNN/scratch/test_augmented_" + version)
+def test_on_augs(net, elem_spec, version=["v1", "v2"]):
     res = {}
-    for p in augp.iterdir():
-        ds = tf.data.experimental.load(p.resolve().as_posix(), elem_spec, compression="GZIP")
-        res[p.name] = net.evaluate(ds.batch(512), return_dict=True)
+    for v in version:
+        augp = Path("/users/k21190024/study/KCL_7CCSMPNN/scratch/test_augmented_" + v)
+        res[v] = {}
+        for p in augp.iterdir():
+            ds = tf.data.experimental.load(p.resolve().as_posix(), elem_spec, compression="GZIP")
+            res[v][p.name] = net.evaluate(ds.batch(512), return_dict=True)
     return res
