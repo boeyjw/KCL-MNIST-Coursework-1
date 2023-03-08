@@ -38,28 +38,39 @@ def load_data(val_size=0, seed=None, return_eval=False):
         , tf.data.Dataset.from_tensor_slices((x_test, y_test))
     )
 
-def load_ext_data(batch_size=256, shuffle=True):
+def load_ext_data(is_digit=True, batch_size=256, shuffle=True):
     img_height = 28
     img_width = 28
-
-    train_ds = tf.keras.preprocessing.image_dataset_from_directory(
-        Path("/users/k21190024/study/KCL_7CCSMPNN/scratch/ext-data/train"),
-        label_mode='categorical',
-        color_mode="grayscale",
-        batch_size=batch_size,
-        image_size=(img_height, img_width),
-        shuffle=shuffle
-    ).map(lambda x, y: (1-(x/255), y))
-
-    test_ds = tf.keras.preprocessing.image_dataset_from_directory(
-        Path("/users/k21190024/study/KCL_7CCSMPNN/scratch/ext-data/test"),
-        label_mode='categorical',
-        color_mode="grayscale",
-        batch_size=batch_size,
-        image_size=(img_height, img_width),
-        shuffle=shuffle
-    ).map(lambda x, y: (1-(x/255), y))
     
+    if not is_digit:
+        train_ds = tf.keras.preprocessing.image_dataset_from_directory(
+            Path("/users/k21190024/study/KCL_7CCSMPNN/scratch/ext-data/train"),
+            label_mode='categorical',
+            color_mode="grayscale",
+            batch_size=batch_size,
+            image_size=(img_height, img_width),
+            shuffle=shuffle
+        ).map(lambda x, y: (1-(x/255), y))
+
+        test_ds = tf.keras.preprocessing.image_dataset_from_directory(
+            Path("/users/k21190024/study/KCL_7CCSMPNN/scratch/ext-data/test"),
+            label_mode='categorical',
+            color_mode="grayscale",
+            batch_size=batch_size,
+            image_size=(img_height, img_width),
+            shuffle=shuffle
+        ).map(lambda x, y: (1-(x/255), y))
+    else:
+        train_ds = np.loadtxt("/scratch/users/k21190024/KCL_7CCSMPNN/ext-data/digit-recognizer/train.csv", delimiter=",", skiprows=1)
+        train_ds = tf.data.Dataset.from_tensor_slices((train_ds[:, 1:].reshape(-1, img_height, img_width, 1), tf.keras.utils.to_categorical(train_ds[:, 0], 10)))
+        if shuffle:
+            train_ds = train_ds.shuffle(10000)
+        train_ds = train_ds.batch(batch_size).map(lambda x, y: (x/255, y))
+        
+        test_ds = np.loadtxt("/scratch/users/k21190024/KCL_7CCSMPNN/ext-data/digit-recognizer/test.csv", delimiter=",", skiprows=1)
+        test_ds = tf.data.Dataset.from_tensor_slices(test_ds.reshape(-1, img_height, img_width, 1))
+        test_ds = test_ds.batch(batch_size).map(lambda x: x/255)
+
     return train_ds, test_ds
 
 def load_aug_data(aug_path, elem_spec, test_ind=[5]):
@@ -75,6 +86,7 @@ def load_aug_data(aug_path, elem_spec, test_ind=[5]):
         i += 1
     return train_ds.shuffle(100000, reshuffle_each_iteration=True), test_ds
 
+
 def plot_shuffle(tensor_ds, show_axis=True):
     tmp = tensor_ds.shuffle(36).take(36).as_numpy_iterator()
 
@@ -85,19 +97,11 @@ def plot_shuffle(tensor_ds, show_axis=True):
             ax[r][c].imshow(img[0], cmap="gray")
             ax[r][c].set_title(np.argmax(img[1]))
             ax[r][c].axis(show_axis)
-            
-def plot_history(history):
-    plt.figure()
-    plt.plot(history.history['loss'], label='training loss')
-    plt.plot(history.history['val_loss'], label='validation loss')
-    plt.xlabel('epochs')
-    plt.ylabel('loss')
-    plt.legend()
     
 def plot_confusion_matrix(x_test, y_test, net):
     return tf.math.confusion_matrix(np.argmax(y_test, axis=1), np.argmax(net.predict(x_test), axis=1))
 
-def test_on_augs(net, elem_spec, version=["v1", "v2"]):
+def test_on_augs(net, elem_spec, version=["v1", "v2"], return_digit_test=False):
     res = {}
     for v in version:
         augp = Path("/users/k21190024/study/KCL_7CCSMPNN/scratch/test_augmented_" + v)
@@ -105,4 +109,13 @@ def test_on_augs(net, elem_spec, version=["v1", "v2"]):
         for p in augp.iterdir():
             ds = tf.data.experimental.load(p.resolve().as_posix(), elem_spec, compression="GZIP")
             res[v][p.name] = net.evaluate(ds.batch(512), return_dict=True)
-    return res
+    
+    train_dig, test_dig = load_ext_data(is_digit=True)
+    res["digit"] = net.evaluate(train_dig, return_dict=True)
+    
+    if return_digit_test:
+        digcsv = {"Label": np.argmax(net.predict(test_dig), axis=1)}
+        digcsv["ImageId"] = list(range(1, len(digcsv["Label"])+1))
+        digcsv = [("ImageId", "Label")] + list(zip(digcsv["ImageId"], digcsv["Label"]))
+    
+    return (res, digcsv) if return_digit_test else res
