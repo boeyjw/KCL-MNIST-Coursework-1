@@ -142,3 +142,4 @@ scratch
 
 # ignore tensorboard
 cw1/*_logs/
+*.h5
